@@ -1,3 +1,9 @@
+This program is a revised version of tiny_gp. Added the ability to change the fitness function, multivariate symbolic regression, a formalized data entry function, where, in the general case, all columns are variables, and the last column is the solution to the equation.
+
+I leave the license and description of the author of the original code.
+I hope this code will help you in your case.
+
+
 # Tiny Genetic Programming in Python
 
 A minimalistic program implementing Koza-style (tree-based) genetic programming to solve a symbolic regression problem. 
