@@ -6,6 +6,7 @@ from random import random, randint, seed
 from statistics import mean
 from copy import deepcopy
 import matplotlib.pyplot as plt
+import numpy as np
 from IPython.display import Image, display
 from graphviz import Digraph, Source
 
@@ -19,8 +20,28 @@ def sub(x, y): return x - y
 def mul(x, y): return x * y
 
 
-FUNCTIONS = [add, sub, mul]
+def div(x, y):
+    if y == 0:
+        return 1
+    return x / y
+
+
+def sin(x): return np.sin(x)
+
+
+def exp(x): return np.exp(x)
+
+
+def sqrt(x):
+    if x < 0:
+        return 1
+    return np.sqrt(x)
+
+
+FUNCTIONS = [add, sub, mul, div]
+ONE_BRANCH_FUNC = [sin, exp, sqrt]
 TERMINALS = [-2, -1, 1, 2, 0.1]
+ALL_FUNCS = [add, sub, mul, div, sin, exp, sqrt]
 
 
 def target_func(x):  # evolution's target
@@ -50,8 +71,11 @@ class GPTree:
     def __str__(self):
         names = {'sub': '-', 'add': '+', 'mul': '*'}
         name_keys = list(names.keys())
-        if str(type(self.data)) != "<class 'function'>":
-            return str(self.data)
+        if self.data in ALL_FUNCS:
+            if self.data.__name__ in name_keys:
+                return names[self.data.__name__]
+            else:
+                return self.data.__name__
         left = str(self.left)
         right = str(self.right)
         if (left == 0 or right == 0) and self.data.__name__ == 'mult':
@@ -59,7 +83,7 @@ class GPTree:
         return f'({left} {names[self.data.__name__]} {right})'
 
     def node_label(self):  # return string label
-        if self.data in FUNCTIONS:
+        if self.data in ALL_FUNCS:
             return self.data.__name__
         else:
             return str(self.data)
@@ -87,6 +111,15 @@ class GPTree:
     def compute_tree(self, x):
         if self.data in FUNCTIONS:
             return self.data(self.left.compute_tree(x), self.right.compute_tree(x))
+        elif self.data in ONE_BRANCH_FUNC:
+            temp = self.right.compute_tree(x)
+            if self.data == exp and -1000000 < temp < 1000000:
+                del self.right
+                self.right = GPTree()
+                self.right.random_tree(True, 1, 2, depth=2)
+                return self.right.compute_tree(x)
+            else:
+                return temp
         elif type(self.data) is str:
             return x[int(self.data[1:])]
         else:
@@ -94,7 +127,7 @@ class GPTree:
 
     def random_tree(self, grow, min_depth, max_depth, depth=0):  # create random tree using either grow or full method
         if depth < min_depth or (depth < max_depth and not grow):
-            self.data = FUNCTIONS[randint(0, len(FUNCTIONS) - 1)]
+            self.data = ALL_FUNCS[randint(0, len(ALL_FUNCS) - 1)]
         elif depth >= max_depth:
             self.data = TERMINALS[randint(0, len(TERMINALS) - 1)]
         else:  # intermediate depth, grow
@@ -105,6 +138,9 @@ class GPTree:
         if self.data in FUNCTIONS:
             self.left = GPTree()
             self.left.random_tree(grow, min_depth, max_depth, depth=depth + 1)
+            self.right = GPTree()
+            self.right.random_tree(grow, min_depth, max_depth, depth=depth + 1)
+        elif self.data in ONE_BRANCH_FUNC:
             self.right = GPTree()
             self.right.random_tree(grow, min_depth, max_depth, depth=depth + 1)
 
@@ -172,11 +208,11 @@ def init_population(min_depth, max_depth, pop_size):  # ramped half-and-half
     return pop
 
 
-def error(individual, dataset):
+def error(individual, dataset, *args):
     return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in dataset])
 
 
-def fitness(individual, dataset, bloat_control):
+def fitness(individual, dataset, bloat_control, error=error):
     if bloat_control:
         return 1 / (1 + error(individual, dataset) + 0.01 * individual.size())
     else:
@@ -226,8 +262,7 @@ def plot(axarr, line, xdata, ydata, gen, pop, errors, max_mean_size):
 
 def symbol_regression(dataset, pop_size=60, min_depth=2, max_depth=5,
                       generations=250, tournament_size=5, xo_rate=0.8,
-                      prob_mutation=0.2, bloat_control=False, add_x=True, fitness=fitness):
-    # init stuff
+                      prob_mutation=0.2, bloat_control=False, add_x=True, error=error):
     if add_x:
         for i in range(len(dataset[0]) - 1):
             # noinspection PyTypeChecker
@@ -236,7 +271,7 @@ def symbol_regression(dataset, pop_size=60, min_depth=2, max_depth=5,
     best_of_run = None
     best_of_run_error = 1e20
     best_of_run_gen = 0
-    fitnesses = [fitness(ind, dataset, bloat_control) for ind in population]
+    fitnesses = [fitness(ind, dataset, bloat_control, error) for ind in population]
     max_mean_size = [0]  # track maximal mean size for plotting
     axarr, line, xdata, ydata = prepare_plots(generations)
 
@@ -250,12 +285,12 @@ def symbol_regression(dataset, pop_size=60, min_depth=2, max_depth=5,
             parent1.mutation(prob_mutation, min_depth)
             nextgen_population.append(parent1)
         population = nextgen_population
-        fitnesses = [fitness(ind, dataset, bloat_control) for ind in population]
-        errors = [error(ind, dataset) for ind in population]
+        fitnesses = [fitness(ind, dataset, bloat_control, error) for ind in population]
+        errors = [error(ind, dataset, bloat_control) for ind in population]
         if min(errors) < best_of_run_error:
             best_of_run_error = min(errors)
             best_of_run_gen = gen
-            best_of_run = deepcopy(population[errors.index(min(errors))])
+            best_of_run: GPTree = deepcopy(population[errors.index(min(errors))])
             print("________________________")
             best_of_run.draw_tree("best_of_run", "gen: " + str(gen) + ", error: " + str(round(best_of_run_error, 3)))
         plot(axarr, line, xdata, ydata, gen, population, errors, max_mean_size)
