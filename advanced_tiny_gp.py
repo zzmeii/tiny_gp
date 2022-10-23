@@ -78,7 +78,7 @@ class GPTree:
         return f'({str(self.left)} {names[self.data.__name__]} {str(self.right)}'
 
     if self.data in ONE_BRANCH_FUNC:
-        return f'{names[self.data.__name__]}({self.left}'
+        return f'{self.data.__name__}({self.left})'
 
     def node_label(self):  # return string label
         if self.data in ALL_FUNCS:
