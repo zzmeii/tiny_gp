@@ -69,18 +69,16 @@ class GPTree:
         self.right = right
 
     def __str__(self):
-        names = {'sub': '-', 'add': '+', 'mul': '*'}
-        name_keys = list(names.keys())
-        if self.data in ALL_FUNCS:
-            if self.data.__name__ in name_keys:
-                return names[self.data.__name__]
-            else:
-                return self.data.__name__
-        left = str(self.left)
-        right = str(self.right)
-        if (left == 0 or right == 0) and self.data.__name__ == 'mult':
-            return 0
-        return f'({left} {names[self.data.__name__]} {right})'
+    names = {'sub': '-', 'add': '+', 'mul': '*', 'div': '/'}
+    
+    if type(self.data) in {int, str}:
+        return self.data
+
+    if self.data.__name__ in names:
+        return f'({str(self.left)} {names[self.data.__name__]} {str(self.right)}'
+
+    if self.data in ONE_BRANCH_FUNC:
+        return f'{names[self.data.__name__]}({self.left}'
 
     def node_label(self):  # return string label
         if self.data in ALL_FUNCS:
